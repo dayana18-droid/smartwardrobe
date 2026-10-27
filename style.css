@@ -1588,3 +1588,53 @@ font-size:28px}
 
 }
 
+/* Чат стилиста и сезонная подборка. */
+.stylist-layout{
+display:grid;
+grid-template-columns:minmax(0,1.55fr) minmax(270px,.8fr);
+gap:16px;
+align-items:start
+}
+.chat-card,.trend-card{
+background:var(--card);
+border:1px solid #efede6;
+border-radius:14px;
+box-shadow:var(--shadow)
+}
+.chat-card{padding:16px;display:flex;flex-direction:column;min-height:590px}
+.assistant-head{display:flex;align-items:center;gap:10px;padding:0 2px 14px;border-bottom:1px solid var(--line)}
+.assistant-avatar{width:35px;height:35px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-size:18px}
+.assistant-head b{font-size:12px;display:block}
+.assistant-head small{font-size:9px;color:var(--muted);display:block;margin-top:3px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#7f9874;margin-left:auto;box-shadow:0 0 0 4px #7f98741a}
+.chat-messages{flex:1;min-height:340px;max-height:430px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:17px 2px}
+.chat-message{max-width:84%;border-radius:12px;padding:11px 13px;font-size:11px;line-height:1.65;white-space:pre-line;animation:fade .18s ease}
+.chat-message.assistant{align-self:flex-start;background:#f1eee7;color:#4c4b44;border-bottom-left-radius:4px}
+.chat-message.user{align-self:flex-end;background:#68715c;color:white;border-bottom-right-radius:4px}
+.chat-message a{color:#52634c;text-decoration:underline}
+.quick-prompts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.quick-prompts button{border:1px solid var(--line);background:#fffefa;color:#77756d;border-radius:20px;padding:7px 9px;font-size:9px;transition:.18s}
+.quick-prompts button:hover{border-color:#aeb4a2;color:#52604a;background:#f5f6f0}
+.chat-compose{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fffefa;border-radius:10px;padding:5px 6px 5px 12px}
+.chat-compose input{flex:1;min-width:0;border:0;outline:0;background:transparent;padding:8px 0;font-size:11px;color:var(--ink)}
+.send-button{border:0;width:32px;height:32px;border-radius:8px;background:var(--ink);color:white;font-size:18px;line-height:1}
+.send-button:hover{background:var(--accent)}
+.chat-footnote{font-size:9px;color:#9a978e;margin-top:9px;line-height:1.5}
+.trend-card{padding:20px}
+.trend-kicker{font-size:9px;color:var(--accent);letter-spacing:1.5px;font-weight:700}
+.trend-card h3{font:21px var(--serif);font-weight:500;margin:9px 0 7px}
+.trend-card>p{font-size:10px;line-height:1.6;color:var(--muted);margin:0 0 13px}
+.style-picker{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 12px;border-bottom:1px solid var(--line);font-size:9px;color:var(--muted)}
+.style-picker select{border:1px solid var(--line);background:#fffefa;border-radius:7px;padding:7px 9px;color:var(--ink);font-size:9px}
+.trend-item{width:100%;display:grid;grid-template-columns:23px 1fr 14px;gap:8px;align-items:start;text-align:left;padding:12px 0;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink)}
+.trend-item>span{font:12px var(--serif);color:#a9a69a;padding-top:1px}
+.trend-item b{font-size:10px;font-weight:600;display:block}
+.trend-item small{font-size:9px;color:var(--muted);line-height:1.45;display:block;margin-top:4px}
+.trend-item i{font-size:12px;color:var(--accent);font-style:normal;transition:transform .18s}
+.trend-item:hover i{transform:translate(2px,-2px)}
+.trend-source{border-top:1px solid var(--line);padding-top:12px;margin-top:3px;color:#9a978e;font-size:9px;line-height:1.6}
+.trend-source a{color:var(--accent);text-decoration:none}
+.trend-source a:hover{text-decoration:underline}
+@media(max-width:1020px){.stylist-layout{grid-template-columns:1fr}.trend-card{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.trend-card h3,.trend-card>p,.trend-kicker,.trend-source{grid-column:1/-1}}
+@media(max-width:720px){.nav{grid-template-columns:repeat(6,1fr)}.stylist-layout{gap:11px}.chat-card{padding:12px;min-height:560px}.chat-messages{min-height:300px}.trend-card{display:block;padding:16px}.chat-message{max-width:92%}.quick-prompts{gap:5px}.quick-prompts button{font-size:8px;padding:7px 8px}}
+

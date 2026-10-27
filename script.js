@@ -1,6 +1,6 @@
 // Имя базы IndexedDB и её версия.
-const DB_NAME='virtual-wardrobe-db',DB_VERSION=1;
-let db,clothes=[],looks=[],plans=[],usage={},filter='Все',editingId=null,newPhoto=null,selectedItems=new Set(),calDate=new Date(),pickedDate=new Date();
+const DB_NAME='virtual-wardrobe-db',DB_VERSION=2;
+let db,clothes=[],looks=[],plans=[],usage={},filter='Все',editingId=null,newPhoto=null,selectedItems=new Set(),calDate=new Date(),pickedDate=new Date(),userStyle='Минимализм';
 
 // Стартовые вещи. Их фотографии — простые локальные иллюстрации, которые можно заменить своими.
 const demo=[['Льняная рубашка','Верх','👔','Бежевый','Весна'],['Пиджак свободного кроя','Верх','🧥','Зелёный','Осень'],['Джинсы прямые','Низ','👖','Голубой','На любой сезон'],['Кожаные лоферы','Обувь','👞','Коричневый','Демисезон'],['Мягкий джемпер','Верх','🧶','Розовый','Зима'],['Сумка на каждый день','Аксессуары','👜','Бежевый','На любой сезон'],['Юбка миди','Низ','👗','Чёрный','Весна'],['Белые кеды','Обувь','👟','Белый','На любой сезон']];
@@ -8,7 +8,7 @@ const demo=[['Льняная рубашка','Верх','👔','Бежевый',
 // IndexedDB: локальная база вещей, образов, планов и статистики.
 function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);
 req.onupgradeneeded=()=>{const d=req.result;
-for(const s of ['clothes','looks','plans','usage'])if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id'})};
+for(const s of ['clothes','looks','plans','usage','profile'])if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id'})};
 req.onsuccess=()=>resolve(req.result);
 req.onerror=()=>reject(req.error)})}
 function all(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();
@@ -39,6 +39,8 @@ async function init() {
   try {
     db = await openDB();
     const existing = await all('clothes');
+    const savedProfile = await all('profile');
+    userStyle = savedProfile.find(item => item.id === 'main')?.style || 'Минимализм';
 
     // При самом первом запуске наполняем каталог демонстрационными вещами.
     if (existing.length === 0) {
@@ -94,11 +96,106 @@ function renderLooks(){document.getElementById('looksGrid').innerHTML=looks.map(
 function renderCalendar(){const y=calDate.getFullYear(),m=calDate.getMonth();document.getElementById('monthLabel').textContent=new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric'}).format(calDate);const first=(new Date(y,m,1).getDay()+6)%7,last=new Date(y,m+1,0).getDate(),prev=new Date(y,m,0).getDate(),cells=[];for(let i=0;i<42;i++){let n,mm=m,yy=y,muted=false;if(i<first){n=prev-first+i+1;mm=m-1;muted=true}else if(i>=first+last){n=i-first-last+1;mm=m+1;muted=true}else n=i-first+1;const key=`${yy}-${String(mm+1).padStart(2,'0')}-${String(n).padStart(2,'0')}`,today=new Date().toISOString().slice(0,10),selected=key===pickedDate.toISOString().slice(0,10),has=plans.some(p=>p.date===key);cells.push(`<button class="day ${muted?'muted':''} ${key===today?'today':''} ${selected?'selected':''} ${has?'has-plan':''}" data-date="${key}">${n}</button>`)}document.getElementById('calendarDays').innerHTML=cells.join('');document.getElementById('selectedDateLabel').textContent=new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long'}).format(pickedDate);const key=pickedDate.toISOString().slice(0,10),todayPlans=plans.filter(p=>p.date===key);document.getElementById('planList').innerHTML=todayPlans.map(p=>`<div class="plan-row"><span>✳ ${esc(p.name)}</span><button data-action="unplan" data-id="${esc(p.id)}" aria-label="Удалить план">×</button></div>`).join('')||'<div class="plan-empty">На этот день пока ничего не запланировано. Выбери образ из сохранённых.</div>';document.getElementById('planDate').value=key}
 function renderStats(){const used=Object.entries(usage).sort((a,b)=>b[1]-a[1]).slice(0,8);document.getElementById('statsCards').innerHTML=`<div class="stat"><div><span>Всего вещей</span><strong>${clothes.length}</strong></div><i class="stat-icon">▤</i></div><div class="stat"><div><span>Сохранено образов</span><strong>${looks.length}</strong></div><i class="stat-icon">✳</i></div><div class="stat"><div><span>Всего использований</span><strong>${Object.values(usage).reduce((a,b)=>a+b,0)}</strong></div><i class="stat-icon">◷</i></div>`;document.getElementById('usageList').innerHTML=used.length?used.map(([id,n])=>{const c=clothes.find(x=>x.id===id);if(!c)return '';return `<div class="usage-row"><div class="usage-img">${c.photo?`<img src="${c.photo}" alt="">`:esc(c.emoji||'👕')}</div><div><b>${esc(c.name)}</b><small>${esc(c.category)} · использовали ${n} ${word(n)}</small></div><div class="bar"><i style="width:${Math.max(6,Math.min(100,n/Math.max(...used.map(x=>x[1]))*100))}%"></i></div></div>`}).join(''):empty('Статистика появится здесь','Собирай образы, чтобы видеть, какие вещи носишь чаще')}
 function renderAll(){renderHome();renderCloset();renderLooks();renderCalendar();renderStats()}
-function goto(name){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+name));document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));const titles={home:'Добро пожаловать, <em>Алина</em>',closet:'Мой гардероб',outfits:'Твои образы',calendar:'Календарь образов',stats:'Твоя статистика'};document.getElementById('pageTitle').innerHTML=titles[name];if(name==='calendar')renderCalendar()}
+
+// Для персонального подбора стилист использует только локальный каталог.
+function chooseWardrobeItem(category) {
+  const colorsByStyle = {
+    'Минимализм':['Бежевый','Чёрный','Белый','Серый','Коричневый'],
+    'Casual':['Голубой','Синий','Бежевый','Белый','Зелёный'],
+    'Романтика':['Розовый','Бежевый','Белый','Коричневый'],
+    'Яркие акценты':['Красный','Зелёный','Голубой','Розовый','Жёлтый']
+  };
+  const preferred = colorsByStyle[userStyle] || colorsByStyle['Минимализм'];
+  return clothes
+    .filter(item => item.category === category)
+    .sort((a,b) => Number(b.favorite)-Number(a.favorite)
+      || preferred.indexOf(a.color)-preferred.indexOf(b.color)
+      || (usage[a.id]||0)-(usage[b.id]||0))[0] || null;
+}
+
+function appendStylistMessage(text, sender, addSources=false) {
+  const message = document.createElement('div');
+  message.className = `chat-message ${sender}`;
+  message.textContent = text;
+  if (addSources) {
+    const sources = document.createElement('div');
+    sources.className = 'chat-sources';
+    sources.innerHTML = '<a href="https://www.vogue.com/article/fall-winter-2026-fashion-trends" target="_blank" rel="noopener">Vogue, Fall 2026</a> · <a href="https://www.vogue.co.uk/article/autumn-winter-2026-fashion-trends" target="_blank" rel="noopener">British Vogue, AW 2026</a>';
+    message.append(sources);
+  }
+  const list = document.getElementById('chatMessages');
+  list.append(message);
+  list.scrollTop = list.scrollHeight;
+}
+
+function outfitAdvice() {
+  const chosen = ['Верх','Низ','Обувь'].map(chooseWardrobeItem).filter(Boolean);
+  if (!chosen.length) return 'Пока в гардеробе мало вещей для сочетания. Добавь верх, низ и обувь — тогда я соберу комплект из твоих вещей.';
+  const missing = ['Верх','Низ','Обувь'].filter(category => !chosen.some(item => item.category === category));
+  const names = chosen.map(item => item.name).join(' + ');
+  const extra = chooseWardrobeItem('Аксессуары');
+  return `Для стиля «${userStyle}» попробуй: ${names}${extra ? ` + ${extra.name}` : ''}. Я выбрала любимые вещи и оттенки, которые подходят выбранному направлению.${missing.length ? ` В гардеробе пока нет категории «${missing.join(', ')}».` : ''}`;
+}
+
+function trendAdvice(question) {
+  const names = clothes.map(item => item.name.toLowerCase()).join(' ');
+  const alreadyHasCoat = /пальто|тренч|куртк|жакет|пиджак/.test(names);
+  const alreadyHasSkirt = /юбк/.test(names);
+  const suggestions = [];
+  if (alreadyHasCoat) suggestions.push('Верхний слой уже есть в гардеробе — попробуй носить его с более мягким базовым слоем.');
+  else suggestions.push('Если нужна практичная обновка, присмотрись к структурированному пальто в цвете, который сочетается с твоими вещами.');
+  if (alreadyHasSkirt) suggestions.push('Юбка уже есть: добавь к ней спокойный верх и одну выразительную деталь.');
+  else suggestions.push('Флоральная юбка миди может добавить сезонный принт без полной смены гардероба.');
+  const currentTop = chooseWardrobeItem('Верх');
+  const currentBottom = chooseWardrobeItem('Низ');
+  if (currentTop && currentBottom) suggestions.push(`Начни с уже имеющейся пары: ${currentTop.name} и ${currentBottom.name}; мягкий тейлоринг можно получить за счёт свободного жакета или второго слоя.`);
+  const focus = /пальто/.test(question.toLowerCase()) ? 'структурированное пальто' : /принт|цветоч/.test(question.toLowerCase()) ? 'осенний цветочный принт' : 'мягкий тейлоринг и выразительные пропорции';
+  return `В обзорах осень–зима 2026 часто отмечают ${focus}, флоральные мотивы и более выразительные силуэты. Для твоего стиля «${userStyle}»: ${suggestions.join(' ')}`;
+}
+
+function answerStylist(question) {
+  const text = question.toLowerCase();
+  if (/тренд|модн|пальто|принт|2026|тейлоринг/.test(text)) return {text:trendAdvice(question),sources:true};
+  if (/купить|докуп|добавить|не хватает|обновить/.test(text)) return {text:trendAdvice('что мне докупить?'),sources:true};
+  if (/офис|работ|делов/.test(text)) return {text:`Для офиса начни с более собранной версии: ${outfitAdvice()} Если в комплекте нет жакета, структурированный верхний слой — хороший пункт в список желаний.`};
+  if (/погода|холод|тепло|сегодня/.test(text)) return {text:`Я не подключена к прогнозу погоды, поэтому не буду угадывать температуру. По гардеробу могу предложить: ${outfitAdvice()} Если на улице прохладно, добавь слой, который легко снять.`};
+  if (/образ|надеть|сочет|лук|наряд/.test(text)) return {text:outfitAdvice()};
+  return {text:`Я могу собрать образ из твоих вещей, подобрать комплект для работы или подсказать сезонную покупку. Сейчас учитываю стиль «${userStyle}» и каталог в этом браузере. Что тебе важнее — повод, цвет или тренд?`};
+}
+
+function sendStylistMessage(text) {
+  const question = text.trim();
+  if (!question) return;
+  appendStylistMessage(question, 'user');
+  document.getElementById('stylistInput').value = '';
+  window.setTimeout(() => {
+    const answer = answerStylist(question);
+    appendStylistMessage(answer.text, 'assistant', answer.sources);
+  }, 280);
+}
+
+function setupStylist() {
+  const styleSelect = document.getElementById('stylePreference');
+  styleSelect.value = userStyle;
+  styleSelect.addEventListener('change', async () => {
+    userStyle = styleSelect.value;
+    await put('profile', {id:'main',style:userStyle});
+    appendStylistMessage(`Запомнила: тебе ближе стиль «${userStyle}». Буду учитывать это в локальных подсказках.`, 'assistant');
+  });
+  document.getElementById('stylistForm').addEventListener('submit', event => {
+    event.preventDefault();
+    sendStylistMessage(document.getElementById('stylistInput').value);
+  });
+  document.querySelectorAll('[data-prompt]').forEach(button => {
+    button.addEventListener('click', () => sendStylistMessage(button.dataset.prompt));
+  });
+}
+
+function goto(name){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+name));document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));const titles={home:'Добро пожаловать, <em>Алина</em>',closet:'Мой гардероб',outfits:'Твои образы',stylist:'SmartWardrobe Stylist',calendar:'Календарь образов',stats:'Твоя статистика'};document.getElementById('pageTitle').innerHTML=titles[name];if(name==='calendar')renderCalendar()}
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 // Подключаем обработчики всех кнопок и форм после загрузки данных.
-function setup(){document.getElementById('dateLabel').textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(new Date()).toUpperCase();document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>goto(b.dataset.view));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>goto(b.dataset.goto));document.getElementById('addTop').onclick=document.getElementById('addCloset').onclick=()=>newItem();document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));document.querySelectorAll('.modal-bg').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-bg.open').forEach(m=>closeModal(m.id))});document.getElementById('categoryFilters').onclick=e=>{const b=e.target.closest('[data-category]');if(!b)return;filter=b.dataset.category;document.querySelectorAll('[data-category]').forEach(x=>x.classList.toggle('active',x===b));renderCloset()};document.getElementById('search').oninput=renderCloset;bindPhoto();document.getElementById('saveItem').onclick=saveItem;document.getElementById('buildLook').onclick=()=>openBuilder(false);document.getElementById('randomLook').onclick=randomOutfit;document.getElementById('saveLook').onclick=saveLook;document.getElementById('prevMonth').onclick=()=>{calDate=new Date(calDate.getFullYear(),calDate.getMonth()-1,1);renderCalendar()};document.getElementById('nextMonth').onclick=()=>{calDate=new Date(calDate.getFullYear(),calDate.getMonth()+1,1);renderCalendar()};document.getElementById('calendarDays').onclick=e=>{const b=e.target.closest('[data-date]');if(!b)return;pickedDate=new Date(b.dataset.date+'T12:00:00');renderCalendar()};document.getElementById('planButton').onclick=()=>{if(!looks.length)return toast('Сначала сохрани образ в конструкторе');document.getElementById('planLook').innerHTML=looks.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');document.getElementById('planDate').value=pickedDate.toISOString().slice(0,10);openModal('planModal')};document.getElementById('savePlan').onclick=savePlan;document.body.addEventListener('click',handleActions)}
+function setup(){document.getElementById('dateLabel').textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(new Date()).toUpperCase();document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>goto(b.dataset.view));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>goto(b.dataset.goto));document.getElementById('addTop').onclick=document.getElementById('addCloset').onclick=()=>newItem();document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));document.querySelectorAll('.modal-bg').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-bg.open').forEach(m=>closeModal(m.id))});document.getElementById('categoryFilters').onclick=e=>{const b=e.target.closest('[data-category]');if(!b)return;filter=b.dataset.category;document.querySelectorAll('[data-category]').forEach(x=>x.classList.toggle('active',x===b));renderCloset()};document.getElementById('search').oninput=renderCloset;bindPhoto();document.getElementById('saveItem').onclick=saveItem;document.getElementById('buildLook').onclick=()=>openBuilder(false);document.getElementById('randomLook').onclick=randomOutfit;document.getElementById('saveLook').onclick=saveLook;document.getElementById('prevMonth').onclick=()=>{calDate=new Date(calDate.getFullYear(),calDate.getMonth()-1,1);renderCalendar()};document.getElementById('nextMonth').onclick=()=>{calDate=new Date(calDate.getFullYear(),calDate.getMonth()+1,1);renderCalendar()};document.getElementById('calendarDays').onclick=e=>{const b=e.target.closest('[data-date]');if(!b)return;pickedDate=new Date(b.dataset.date+'T12:00:00');renderCalendar()};document.getElementById('planButton').onclick=()=>{if(!looks.length)return toast('Сначала сохрани образ в конструкторе');document.getElementById('planLook').innerHTML=looks.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');document.getElementById('planDate').value=pickedDate.toISOString().slice(0,10);openModal('planModal')};document.getElementById('savePlan').onclick=savePlan;document.body.addEventListener('click',handleActions);setupStylist()}
 function compress(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{const scale=Math.min(1,1000/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);resolve(c.toDataURL('image/jpeg',.8))};img.onerror=reject;img.src=url})}
 function newItem(item=null){editingId=item?.id||null;newPhoto=item?.photo||null;document.getElementById('itemModalTitle').textContent=item?'Редактировать вещь':'Добавить вещь';document.getElementById('nameInput').value=item?.name||'';document.getElementById('categoryInput').value=item?.category||'Верх';document.getElementById('colorInput').value=item?.color||'Бежевый';document.getElementById('seasonInput').value=item?.season||'Демисезон';document.getElementById('uploadBox').innerHTML=item?.photo?`<img src="${item.photo}" alt="Предпросмотр фото"><input id="photoInput" type="file" accept="image/*" hidden>`:`<span><strong>＋ Добавь фото вещи</strong><span>Нажми, чтобы выбрать изображение</span></span><input id="photoInput" type="file" accept="image/*" hidden>`;bindPhoto();openModal('itemModal')}
 function bindPhoto(){document.getElementById('photoInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(!f.type.startsWith('image/'))return toast('Выбери файл изображения');try{newPhoto=await compress(f);document.getElementById('uploadBox').innerHTML=`<img src="${newPhoto}" alt="Предпросмотр фото"><input id="photoInput" type="file" accept="image/*" hidden>`;bindPhoto()}catch{toast('Не удалось загрузить изображение')}}}
